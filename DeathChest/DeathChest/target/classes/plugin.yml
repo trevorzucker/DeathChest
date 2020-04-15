@@ -1,0 +1,4 @@
+main: codes.zucker.DeathChest.Main
+name: DeathChest
+version: 1.0
+api-version: 1.15
