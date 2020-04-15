@@ -4,8 +4,15 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
+import java.util.Map.Entry;
 
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.block.Block;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.inventory.Inventory;
 
 class DataLoader { // ConfigurationLoader, DataLoader, and LangLoader all work the same.
 
@@ -18,29 +25,45 @@ class DataLoader { // ConfigurationLoader, DataLoader, and LangLoader all work t
         if (!dataFile.exists())
             try {
                 dataFile.createNewFile();
-            } catch (IOException e) { }
+            } catch (IOException e) {
+            }
     }
 
     public static void LoadDataFile() {
         CreateFile();
         config = YamlConfiguration.loadConfiguration(dataFile);
-        /*for (String coords : config.getKeys(false)) {
-            String breaksLeft = config.getString(coords);
-            String[] locStr = coords.split("_");
-            Location loc = new Location(Bukkit.getWorld(locStr[0]), Double.parseDouble(locStr[1]), Double.parseDouble(locStr[2]), Double.parseDouble(locStr[3]));
-            new ReinforcedBlock(loc.getBlock(), Integer.parseInt(breaksLeft));
-            DataValues.put(coords, breaksLeft);
-        }*/
+        
+        for (String coords : config.getKeys(false)) {
+            Location loc = Utils.deserializeLocation(coords);
+            ConfigurationSection c = config.getConfigurationSection(coords);
+            Block b = loc.getBlock();
+            try {
+                UUID uuid = UUID.fromString(c.getString("owner"));
+                long expire = c.getLong("expire") + System.currentTimeMillis();    
+                Inventory inv = BukkitSerialization.fromBase64(c.getString("inventory"));
+                PlayerChest chest = new PlayerChest(inv, uuid, expire);
+                Events.deathChest.put(b, chest);
+                Bukkit.getLogger().info("Added death chest from data file");
+            } catch (IOException e) {}
+            
+        }
+        
     }
 
     public static void SaveDataFile() {
+        config = new YamlConfiguration();
+        for (Entry<Block, PlayerChest> entry : Events.deathChest.entrySet()) {
+            Block b = entry.getKey();
+            Location location = b.getLocation();
 
-        /*for (Entry<Location, ReinforcedBlock> entry : ReinforcedBlock.list.entrySet()) {
-            Location location = entry.getKey();
-            String loc = location.getWorld().getName() + "_" + location.getBlockX() + "_" + location.getBlockY() + "_" + location.getBlockZ();
-            String val = entry.getValue().GetBreaksLeft() + "";
-            config.set(loc, val);
-        }*/
+            ConfigurationSection c = config.createSection(Utils.serializeLocation(location));
+
+            PlayerChest pc = entry.getValue();
+            c.set("owner", pc.owner.toString());
+            long expire = pc.expire - System.currentTimeMillis();
+            c.set("expire", expire);
+            c.set("inventory", BukkitSerialization.toBase64(pc.inventory));
+        }
 
         try { config.save(dataFile); } catch (IOException e) { }
     }

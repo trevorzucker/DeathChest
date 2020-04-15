@@ -1,5 +1,6 @@
 package codes.zucker.DeathChest;
 
+import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -11,6 +12,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryType;
@@ -20,7 +22,9 @@ import org.bukkit.inventory.ItemStack;
 
 public class Events implements Listener {
 
-    public static Map<Block, Inventory> deathChest = new HashMap<Block, Inventory>();
+    final static int EXPIRE_SECONDS = (int)ConfigurationLoader.ConfigValues.get("time_expire");
+
+    public static Map<Block, PlayerChest> deathChest = new HashMap<Block, PlayerChest>();
 
     @EventHandler
     public static void pDeath(PlayerDeathEvent e) {
@@ -33,11 +37,14 @@ public class Events implements Listener {
         }
         Block standing = p.getLocation().getBlock();
         standing.setType(Material.ENDER_CHEST);
-        deathChest.put(standing, drops);
+        long expire = System.currentTimeMillis() + (EXPIRE_SECONDS * 1000);
+        deathChest.put(standing, new PlayerChest(drops, p.getUniqueId(), expire));
     }
 
     public static Map<Player, Inventory> eChest = new HashMap<Player, Inventory>();
     public static Map<Player, Block> openedEChest = new HashMap<Player, Block>();
+
+    public final static String ATTEMPT_OPEN_LOCKED = (String)LangLoader.Values.get("attempt_open_locked");
 
     @EventHandler
     public static void openEChest(PlayerInteractEvent e) {
@@ -47,14 +54,26 @@ public class Events implements Listener {
         Player p = e.getPlayer();
 
         Block b = e.getClickedBlock();
-        Inventory found = null;
-        for(Entry<Block, Inventory> entry : deathChest.entrySet()) {
+        PlayerChest found = null;
+        for(Entry<Block, PlayerChest> entry : deathChest.entrySet()) {
             if (entry.getKey().getLocation().equals(b.getLocation())) {
                 found = entry.getValue();
                 break;
             }
         }
         if (found == null) {
+            return;
+        }
+
+        if (!found.owner.equals(p.getUniqueId()) && System.currentTimeMillis() < found.expire) {
+            int secsRemaining = (int)((found.expire - System.currentTimeMillis()) / 1000);
+            String replace = secsRemaining + " seconds";
+            if (secsRemaining >= 120) {
+                replace = (secsRemaining / 60) + " minutes";
+            }
+            String msg = ATTEMPT_OPEN_LOCKED.replaceAll("%s", replace);
+            p.sendMessage(msg);
+            e.setCancelled(true);
             return;
         }
 
@@ -69,7 +88,7 @@ public class Events implements Listener {
         eChest.put(p, plChest);
 
         pChest.clear();
-        for(ItemStack s : found.getContents()) {
+        for(ItemStack s : found.inventory.getContents()) {
             if (s != null && s.getType() != Material.AIR)
                 pChest.addItem(s);
         }
@@ -93,7 +112,8 @@ public class Events implements Listener {
 
             if (size > 0) {
                 if (closed != null && deathChest.get(closed) != null) {
-                    Inventory death = deathChest.get(closed);
+                    PlayerChest entry = deathChest.get(closed);
+                    Inventory death = entry.inventory;
                     death.clear();
                     for(ItemStack s : contents.getContents())
                         if (s != null && s.getType() != Material.AIR)
@@ -103,7 +123,6 @@ public class Events implements Listener {
             else {
                 closed.setType(Material.AIR);
                 deathChest.remove(closed);
-                p.sendMessage("removing chest");
             }
 
             chest.clear();
@@ -113,6 +132,14 @@ public class Events implements Listener {
             }
             eChest.remove(p);
             openedEChest.remove(p);
+        }
+    }
+
+    @EventHandler
+    public static void blockBreak(BlockBreakEvent e) {
+        Block b = e.getBlock();
+        if(deathChest.get(b) != null) {
+            e.setCancelled(true);
         }
     }
 

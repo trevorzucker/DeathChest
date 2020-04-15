@@ -17,6 +17,7 @@ public class Main extends JavaPlugin {
         DataLoader.LoadDataFile();                 // files
 
         getServer().getPluginManager().registerEvents(new Events(), this);
+        CommandHelper.RegisterCommand("deathchest", "deathChestCommand");
     }
 
     @Override

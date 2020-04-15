@@ -1,13 +1,32 @@
 package codes.zucker.DeathChest;
 
+import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.Map.Entry;
 
+import org.bukkit.Bukkit;
+import org.bukkit.Color;
+import org.bukkit.FireworkEffect;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.FireworkEffect.Type;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.entity.Chicken;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Firework;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.FireworkMeta;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
 
 public class Utils { // some nice utils
@@ -90,5 +109,27 @@ public class Utils { // some nice utils
             }
         }
         return closestFace;
+    }
+
+    public static String serializeLocation(Location l) {
+        if (l == null) return "";
+        String m = "";
+        m += l.getWorld().getName() + " ";
+        m += l.getBlockX() + " ";
+        m += l.getBlockY() + " ";
+        m += l.getBlockZ() + "";
+        return m;
+    }
+
+    public static Location deserializeLocation(String str) {
+        if (str == null || str.equals(""))
+            return null;
+
+        String[] vals = str.split(" ");
+        World w = Bukkit.getServer().getWorld(vals[0]);
+        if (w == null) {
+            throw new IllegalArgumentException("non-existent world");
+        }
+        return new Location(w, Double.parseDouble(vals[1]), Double.parseDouble(vals[2]), Double.parseDouble(vals[3]));
     }
 }
